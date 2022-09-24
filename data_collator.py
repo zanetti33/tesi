@@ -35,7 +35,7 @@ class ViltDataCollator:
             next_sentence_labels = []
             for e in examples:
                 next_sentence_labels.append(e["next_sentence_labels"])
-            labels_encoding = {"next_sentence_labels": torch.Tensor(next_sentence_labels)}
+            labels_encoding = {"next_sentence_labels": torch.LongTensor(next_sentence_labels)}
         else:
             labels_encoding = {"next_sentence_labels": torch.stack(examples["next_sentence_labels"], dim=1)}
         encoding.update(labels_encoding)

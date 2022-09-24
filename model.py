@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from transformers import ViltPreTrainedModel, ViltModel
 from transformers.models.vilt.modeling_vilt import ViltMLMHead
 from transformers.utils import logging
+import wandb
 logger = logging.get_logger(__name__)
 
 @dataclass
@@ -25,7 +26,7 @@ class ViltForMaskedLMAndITM(ViltPreTrainedModel):
 
         self.vilt = ViltModel(config)
         self.mlm_score = ViltMLMHead(config)
-        self.itm_score = nn.Linear(config.hidden_size, 1)
+        self.itm_score = nn.Linear(config.hidden_size, 2)
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -82,18 +83,20 @@ class ViltForMaskedLMAndITM(ViltPreTrainedModel):
         if labels is not None:
             loss_fct = CrossEntropyLoss()  # -100 index = padding token
             masked_lm_loss = loss_fct(mlm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+            # workaround to log in wandb
+            wandb.log({"train/mlm_loss": masked_lm_loss})
             total_loss = masked_lm_loss
 
         itm_loss = None
         if next_sentence_labels is not None:
-            loss_fct = CrossEntropyLoss()  # -100 index = padding token
-            itm_loss = loss_fct(itm_logits.view(-1), next_sentence_labels.view(-1))
+            loss_fct = CrossEntropyLoss()
+            itm_loss = loss_fct(itm_logits.view(-1, 2), next_sentence_labels.view(-1))
+            # workaround to log in wandb
+            wandb.log({"train/itm_loss": itm_loss})
             total_loss = total_loss + itm_loss if total_loss is not None else itm_loss
 
-        #logger.warning(masked_lm_loss, itm_loss)
-
         if not return_dict:
-            output = (mlm_logits,itm_logits) + outputs[2:]
+            output = (mlm_logits, itm_logits) + outputs[2:]
             return ((total_loss,) + output) if total_loss is not None else output
 
         return MaskedLMAndITMOutput(

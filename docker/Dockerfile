@@ -13,4 +13,5 @@ RUN conda update conda \
     && conda install -c huggingface transformers -y \
     && conda install -c anaconda pandas -y \
     && conda install -c huggingface -c conda-forge datasets -y \
-    && conda install -c conda-forge scikit-learn -y
+    && conda install -c conda-forge scikit-learn -y \
+    && conda install -c conda-forge wandb
