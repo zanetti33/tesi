@@ -1,20 +1,19 @@
-from transformers.data.data_collator import DataCollatorMixin, DataCollatorForWholeWordMask, DataCollatorForLanguageModeling
+from transformers.data.data_collator import (
+    DataCollatorForLanguageModeling,
+)
 import torch
 from dataclasses import dataclass
 from typing import List, Union, Dict
 from transformers import ViltProcessor
 
+
 @dataclass
-class ViltDataCollator:
-
-    processor : ViltProcessor
-
-    mlm_datacollator:  DataCollatorForLanguageModeling
+class ViltDataCollatorForPretraining:
+    processor: ViltProcessor
+    mlm_datacollator: DataCollatorForLanguageModeling
 
     def __call__(
-
         self, examples: List[Union[List[int], torch.Tensor, Dict[str, torch.Tensor]]]
-
     ) -> Dict[str, torch.Tensor]:
         if isinstance(examples, list):
             texts = []
@@ -40,3 +39,20 @@ class ViltDataCollator:
             labels_encoding = {"next_sentence_labels": torch.stack(examples["next_sentence_labels"], dim=1)}
         encoding.update(labels_encoding)
         return encoding
+
+
+class ViltDataCollatorForMetricLearning:
+    def __init__(self, preprocessor: ViltProcessor) -> None:
+        self.processor = preprocessor
+
+    def __call__(
+        self, examples: List[Union[List[int], torch.Tensor, Dict[str, torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
+        text_encoding = self.processor.tokenizer(
+            [e[1] for e in examples], padding="max_length", truncation=True, return_tensors="pt"
+        )
+        image_encoding = self.processor.feature_extractor([e[0] for e in examples], return_tensors="pt")
+        labels = torch.Tensor([e[2] for e in examples])
+        # we return dictionaries so that we can easily use them through the pytorch-metric-learning APIs
+        # (BatchFeatures and BatchEncoding classes are huggingface specific)
+        return dict(image_encoding), dict(text_encoding), labels

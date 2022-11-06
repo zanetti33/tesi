@@ -8,7 +8,10 @@ from transformers import ViltPreTrainedModel, ViltModel
 from transformers.models.vilt.modeling_vilt import ViltMLMHead
 from transformers.utils import logging
 import wandb
+import modeling_vilt
+
 logger = logging.get_logger(__name__)
+
 
 @dataclass
 class MaskedLMAndITMOutput(ModelOutput):
@@ -20,12 +23,14 @@ class MaskedLMAndITMOutput(ModelOutput):
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
+
 @dataclass
 class ITMOutput(ModelOutput):
     loss: Optional[torch.FloatTensor] = None
     logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
+
 
 class ViltForMaskedLMAndITM(ViltPreTrainedModel):
     def __init__(self, config):
@@ -116,6 +121,7 @@ class ViltForMaskedLMAndITM(ViltPreTrainedModel):
             attentions=outputs.attentions,
         )
 
+
 class ViltForImageTextMatching(ViltPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
@@ -176,3 +182,42 @@ class ViltForImageTextMatching(ViltPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+class ViltModelForEmbedding(ViltPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.vilt = modeling_vilt.CustomViltModel(config)
+        self.post_init()
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        pixel_values=None,
+        pixel_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        image_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        outputs = self.vilt(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            pixel_values=pixel_values,
+            pixel_mask=pixel_mask,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            image_embeds=image_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        return outputs.pooler_output
