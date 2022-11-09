@@ -71,20 +71,12 @@ train_dataframe = dataframe[dataframe["split"] == "train"].iloc[:args.N]
 val_dataframe = dataframe[dataframe["split"]  == "validate"]
 test_dataframe = dataframe[dataframe["split"]  == "test"].iloc[:test_size]
 
-#leggo le label assegnate ai vari record
-label_dataframe = pd.read_csv("/datasets/MIMIC-CXR/mimic-cxr-2.0.0-negbio.csv")
-train_label_dataframe = label_dataframe.loc[label_dataframe['study_id'].isin(train_dataframe['study_id'])]
-val_label_dataframe = label_dataframe.loc[label_dataframe['study_id'].isin(val_dataframe['study_id'])]
-test_label_dataframe = label_dataframe.loc[label_dataframe['study_id'].isin(test_dataframe['study_id'])]
-print(label_dataframe.head())
-
 #classe dataset
 class MimicCxrDataset(torch.utils.data.Dataset):
-    def __init__(self, path, dataframe:pd.DataFrame, labels_dataframe:pd.DataFrame):
+    def __init__(self, path, dataframe:pd.DataFrame):
         self.path = path
         self.dataframe = dataframe
         self.error = True
-        self.labels_dataframe = labels_dataframe
 
     def __getitem__(self, idx):
         texts = []
@@ -100,15 +92,11 @@ class MimicCxrDataset(torch.utils.data.Dataset):
             if i >= len(self.dataframe):
                 text_index = i % len(self.dataframe)
                 text_row = self.dataframe.iloc[text_index]
-                labels_to_check = self.labels_dataframe.loc[self.labels_dataframe['study_id'] == text_row.study_id] == 1.0
                 searching = True
                 while searching:
                     randomIdx = random.randint(0, len(self.dataframe) - 1)
                     image_row = self.dataframe.iloc[randomIdx]
-                    image_labels = self.labels_dataframe.loc[self.labels_dataframe["study_id"] == image_row.study_id]
-                    searching = (len(labels_to_check.index) > 0 and (image_labels[labels_to_check].squeeze() == 1.0).any(axis=None)) or text_row.study_id == image_row.study_id
-                    if searching:
-                        self.error = False
+                    searching = text_row.study_id == image_row.study_id
             else:
                 text_row = self.dataframe.iloc[i]
                 image_row = self.dataframe.iloc[i]
@@ -131,9 +119,9 @@ class MimicCxrDataset(torch.utils.data.Dataset):
         return self.error
 
 #creo i dataset di train, test e validation
-train_dataset = MimicCxrDataset(dataset_path, train_dataframe, train_label_dataframe)
-test_dataset = MimicCxrDataset(dataset_path, test_dataframe, test_label_dataframe)
-val_dataset = MimicCxrDataset(dataset_path, val_dataframe, val_label_dataframe)
+train_dataset = MimicCxrDataset(dataset_path, train_dataframe)
+test_dataset = MimicCxrDataset(dataset_path, test_dataframe)
+val_dataset = MimicCxrDataset(dataset_path, val_dataframe)
 
 #custom data collator
 mlm_data_collator = DataCollatorForLanguageModeling(tokenizer = tokenizer, mlm_probability=0.15)
@@ -183,5 +171,3 @@ trainer = MemoryEfficientTrainer(
 )
 
 trainer.train(resume_from_checkpoint=args.checkpoint_dir)
-
-print("\n\n CHECK FOR ERROR:\n", " THERE WAS 0 MISS (PROBABLY AN ERROR)" if train_dataset.checkerror() else " THERE WERE SOME MISSES (PROBABLY OKAY)")
