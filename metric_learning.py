@@ -2,7 +2,7 @@ import argparse
 import random
 import torch
 from torch import optim
-from transformers import ViltConfig, ViltProcessor
+from transformers import ViltConfig, ViltProcessor, ViltFeatureExtractor, AutoTokenizer
 from data_collator import ViltDataCollatorForMetricLearning
 from pytorch_metric_learning import losses, miners
 import pytorch_metric_learning.utils.logging_presets as logging_presets
@@ -16,21 +16,21 @@ from model import ViltModelForEmbedding
 from pytorch_metric_learning.utils.accuracy_calculator import AccuracyCalculator
 import os
 
-# wandb.login(key="9ad1cd077e95967a0961345a858b3028d18c80f5")
 
-
-def main(argv):
+def main():
 
     random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    vilt_processor = ViltProcessor.from_pretrained(args.vilt_pretrained_processor)
-
+    vilt_processor = ViltProcessor(
+        ViltFeatureExtractor(resample=3, image_mean=[0.5, 0.5, 0.5], image_std=[0.5, 0.5, 0.5], size_divisor=32),
+        AutoTokenizer.from_pretrained("bert-base-uncased", model_max_length=args.max_position_embeddings),
+    )
     # config modello
     config = ViltConfig(max_position_embeddings=args.max_position_embeddings)
-    model = ViltModelForEmbedding.from_pretrained(args.pretrained_model, config=config, ignore_mismatched_sizes=True)
+    model = ViltModelForEmbedding.from_pretrained(args.pretrained_model, config=config)
     model.train()
     model.to(device)
 
@@ -57,7 +57,7 @@ def main(argv):
     experiments_folder = os.path.join("metric_learning_experiments", args.experiment_name)
     tensorboard_folder = os.path.join(experiments_folder, "tensorboard")
     wandb_config = config.to_dict()
-    wandb_config.update(argv.__dict__)
+    wandb_config.update(args.__dict__)
     # Attach wandb to tensorboard (pytorch-metric-learning suppports only the latter)
     wandb.tensorboard.patch(root_logdir=tensorboard_folder)
 
@@ -74,7 +74,7 @@ def main(argv):
         experiment_name=args.experiment_name,
     )
     tensorboard_writer.add_text("config", model.config.to_json_string(), 0)
-    tensorboard_writer.add_text("flags", str(argv.__dict__), 0)
+    tensorboard_writer.add_text("flags", str(args.__dict__), 0)
     hooks = logging_presets.get_hook_container(record_keeper)
 
     # Create the tester
@@ -205,4 +205,4 @@ if __name__ == "__main__":
     parser.add_argument("--resume_from_checkpoint", action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
-    main(args)
+    main()
