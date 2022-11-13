@@ -52,7 +52,7 @@ class ViltDataCollatorForMetricLearning:
             [e[1] for e in examples], padding="max_length", truncation=True, return_tensors="pt"
         )
         image_encoding = self.processor.feature_extractor([e[0] for e in examples], return_tensors="pt")
-        labels = torch.Tensor([e[2] for e in examples])
+        labels = torch.LongTensor([e[2] for e in examples])
         # we return dictionaries so that we can easily use them through the pytorch-metric-learning APIs
         # (BatchFeatures and BatchEncoding classes are huggingface specific)
         return dict(image_encoding), dict(text_encoding), labels
