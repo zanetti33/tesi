@@ -153,3 +153,16 @@ class MimicCxrMetricLearningDataset(MimicCxrDataset):
             batch[i][0]["pixel_mask"] = new_mask
 
         return default_collate(batch)
+
+
+class MimicCxrDatasetBasic(MimicCxrDataset):
+    def __get_label(self, idx) -> int:
+        return int(self.dataframe.iloc[idx].study_id)
+
+    def __getitem__(self, idx):
+        text = self._get_text(idx)
+        image = self._get_image(idx)
+        return image, text, idx
+
+    def __len__(self):
+        return len(self.dataframe)
