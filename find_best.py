@@ -50,11 +50,12 @@ for batch in dataloader:
     token_type_ids = texts["token_type_ids"].to(device)
     pixel_values = images["pixel_values"].to(device)
     pixel_mask = images["pixel_mask"].to(device)
-    outputs = model(input_ids,
-        attention_mask,
-        token_type_ids,
-        pixel_values,
-        pixel_mask)
+    with torch.no_grad():
+        outputs = model(input_ids,
+            attention_mask,
+            token_type_ids,
+            pixel_values,
+            pixel_mask)
     logits = outputs.itm_logits[:,1].cpu()
     best_values = torch.cat((best_values, logits))
     best_values_ids = torch.cat((best_values_ids, indexes))
