@@ -18,7 +18,7 @@ max_position_embeddings = 512
 
 config = ViltConfig(max_position_embeddings=max_position_embeddings)
 processor = ViltProcessor(ViltFeatureExtractor(resample=3, image_mean=[0.5,0.5,0.5], image_std=[0.5,0.5,0.5],size_divisor=32),BertTokenizerFast.from_pretrained('bert-base-uncased', model_max_length=max_position_embeddings))
-val_dataset = MimicCxrDatasetBasic(dataset_path, split="validate")
+val_dataset = MimicCxrDatasetBasic(dataset_path, split="train")
 data_collator = ViltDataCollatorBasic(processor)
 
 # getting the model weights

@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import cv2
 import os
+from save_html import get_html
+from dataset import MimicCxrDatasetBasic
 from captum.attr import visualization as viz
 from captum.attr import LayerIntegratedGradients
 from transformers import ViltProcessor, ViltConfig, ViltFeatureExtractor, BertTokenizerFast
@@ -13,11 +15,13 @@ from model import ViltForMaskedLMAndITM
 import argparse
 
 argparser = argparse.ArgumentParser()
+argparser.add_argument('idx', type=int, default=0, help="defines the index of the record to explain")
 argparser.add_argument('-s','--study', type=int, default=50175065, help="the study you want to get processed")
 argparser.add_argument('-d','--drop_rate', type=float, default=0.9, help="the drop rate used to remove noise")
-argparser.add_argument('-md','--model_dir', default=None, help="defines the directory with the checkpoint from which the training starts")
+argparser.add_argument('-md','--model_dir', default=None, help="defines the directory with the checkpoint to use for explainability")
+argparser.add_argument('-rd','--result_dir', default="./explainability_results", help="defines the directory where to put the results")
 args = argparser.parse_args()
-dataset_path = "/datasets/MIMIC-CXR/files"
+dataset_path = "/datasets/MIMIC-CXR"
 max_position_embeddings = 512
 
 config = ViltConfig(max_position_embeddings=max_position_embeddings)
@@ -29,50 +33,18 @@ if args.model_dir is not None:
 else:
     model = ViltForMaskedLMAndITM.from_pretrained("dandelin/vilt-b32-mlm", config=config, ignore_mismatched_sizes=True)
 
-#class dataset
-class MimicCxrDataset(torch.utils.data.Dataset):
-    def __init__(self, path, dataframe:pd.DataFrame):
-        self.path = path
-        self.dataframe = dataframe
-
-    def __getitem__(self, idx):
-        texts = []
-        images = []
-        labels = []
-        if isinstance(idx, torch.Tensor):
-            idx = idx.tolist()
-        elif isinstance(idx, int):
-            idx = [idx]
-        else:
-            print("Error, type not expected: " + str(type(idx)))
-        for i in idx:
-            row = self.dataframe.iloc[i]
-            txt_path = os.path.join(dataset_path, f"p{str(row.subject_id)[:2]}", f"p{row.subject_id}",f"s{row.study_id}.txt")
-            image_path = os.path.join(dataset_path, f"p{str(row.subject_id)[:2]}", f"p{row.subject_id}", f"s{row.study_id}", f"{row.dicom_id}.jpg")
-            with open(txt_path, "r") as f:
-                text = f.read()
-                texts.append(text)
-            image = Image.open(image_path)
-            image = np.array(image)
-            image = np.stack((image,) * 3, axis=-1)
-            images.append(image)
-            labels.append("Related")
-        return {"texts": texts, "images": images, "labels": labels}
-
-    def __len__(self):
-        return len(self.dataframe)
-
+dataset = MimicCxrDatasetBasic(dataset_path, split="train")
 # getting images and texts
-dataframe = pd.read_csv("/datasets/MIMIC-CXR/random_sampled.csv", index_col=0).sort_index()
-dataset = MimicCxrDataset(dataset_path, dataframe[dataframe['study_id'] == args.study])
-if len(dataset) < 1:
-    print("no record with that study id\n")
-    exit(1)
 
-values = dataset[0]
-text = values["texts"][0]
-image = values["images"][0]
-label = values["labels"][0]
+image, text, _ = dataset[args.idx]
+label = "Related"
+
+if not os.path.exists(args.result_dir):
+    os.mkdir(args.result_dir)
+Image.fromarray(image).save(os.path.join(args.result_dir, "radiography.pdf"))
+Image.fromarray(image).save(os.path.join(args.result_dir, "radiography.jpg"))
+with open(os.path.join(args.result_dir, "report.txt"), "w") as f:
+    f.write(text)
 
 # forwards inputs to the model and applies sigmoid function for texts
 def forward_fun(input_ids: torch.Tensor, token_type_ids: torch.Tensor, attention_mask: torch.Tensor, pixel_values: torch.Tensor, pixel_mask: torch.Tensor):
@@ -162,6 +134,10 @@ patch_relevance = summarize_attributions(attributions, 1)
 # save masked image
 mask = cv2.resize(patch_relevance.cpu().numpy(), (image.shape[1], image.shape[0]), cv2.INTER_CUBIC)
 mask = smooth_and_normalize(mask, args.drop_rate)
-Image.fromarray(show_mask_on_image(image, mask)).save("test.jpg")
+Image.fromarray(show_mask_on_image(image, mask)).save(os.path.join(args.result_dir, "radiography_result.pdf"))
+Image.fromarray(show_mask_on_image(image, mask)).save(os.path.join(args.result_dir, "radiography_result.jpg"))
 
-viz.visualize_text([data_record])
+html = get_html([data_record])
+data = html.data
+with open(os.path.join(args.result_dir, "report_result.html"), "w") as f:
+    f.write(data)
