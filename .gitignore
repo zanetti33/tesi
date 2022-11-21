@@ -1,5 +1,6 @@
 wandb/
 metric_learning_experiments
+pretraining_experiments
 *.npy
 *.pickle
 *.pt
