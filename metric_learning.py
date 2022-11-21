@@ -165,7 +165,7 @@ if __name__ == "__main__":
         default="dandelin/vilt-b32-mlm",
         help="Path to a pretrained model",
     )
-    parser.add_argument("-lr", "--learning_rate", type=float, default=2e-5, help="defines the learning rate")
+    parser.add_argument("-lr", "--learning_rate", type=float, default=2e-5, help="defines the learning rate") #5e-6
     parser.add_argument("-wd", "--weight_decay", type=float, default=1e-4, help="defines the weight decay")
     parser.add_argument("-b1", "--adam_beta1", type=float, default=0.9, help="defines the hyperparameter beta 1")
     parser.add_argument("-b2", "--adam_beta2", type=float, default=0.999, help="defines the hyperparameter beta 2")
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--train_batch_size",
-        default=16,
+        default=24,
         type=int,
         help="Batch size used during training",
     )
