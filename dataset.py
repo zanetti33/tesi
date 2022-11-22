@@ -85,21 +85,7 @@ class MimicCxrPretrainingDataset(MimicCxrDataset):
         for i in idx:
             if i >= len(self.dataframe):
                 text_index = i % len(self.dataframe)
-                text_row = self.dataframe.iloc[text_index]
-                labels_to_check = (
-                    self.labels_dataframe.loc[self.labels_dataframe["study_id"] == text_row.study_id] == 1.0
-                )
-                searching = True
-                while searching:
-                    image_index = random.randint(0, len(self.dataframe) - 1)
-                    image_row = self.dataframe.iloc[image_index]
-                    image_labels = self.labels_dataframe.loc[self.labels_dataframe["study_id"] == image_row.study_id]
-                    searching = (
-                        len(labels_to_check.index) > 0
-                        and (image_labels[labels_to_check].squeeze() == 1.0).any(axis=None)
-                    ) or text_row.study_id == image_row.study_id
-                    if searching:
-                        self.error = False
+                image_index = self._get_different_image_index(text_index)
             else:
                 text_index = i
                 image_index = i
@@ -111,12 +97,58 @@ class MimicCxrPretrainingDataset(MimicCxrDataset):
             labels.append(int(i < len(self.dataframe)))
         return {"texts": texts, "images": images, "next_sentence_labels": labels}
 
+    def _get_different_image_index(self, text_index) -> int:
+        text_row = self.dataframe.iloc[text_index]
+        labels_to_check = (
+            self.labels_dataframe.loc[self.labels_dataframe["study_id"] == text_row.study_id] == 1.0
+        )
+        searching = True
+        while searching:
+            image_index = random.randint(0, len(self.dataframe) - 1)
+            image_row = self.dataframe.iloc[image_index]
+            image_labels = self.labels_dataframe.loc[self.labels_dataframe["study_id"] == image_row.study_id]
+            searching = (
+                len(labels_to_check.index) > 0
+                and (image_labels[labels_to_check].squeeze() == 1.0).all(axis=None)
+            ) or text_row.study_id == image_row.study_id
+            if searching:
+                self.error = False
+        return image_index
+
     def __len__(self):
         return 2 * len(self.dataframe)
 
     def checkerror(self):
         return self.error
 
+class MimicCxrPretrainingDatasetAnyLabels(MimicCxrPretrainingDataset):
+    def _get_different_image_index(self, text_index) -> int:
+        text_row = self.dataframe.iloc[text_index]
+        labels_to_check = (
+            self.labels_dataframe.loc[self.labels_dataframe["study_id"] == text_row.study_id] == 1.0
+        )
+        searching = True
+        while searching:
+            image_index = random.randint(0, len(self.dataframe) - 1)
+            image_row = self.dataframe.iloc[image_index]
+            image_labels = self.labels_dataframe.loc[self.labels_dataframe["study_id"] == image_row.study_id]
+            searching = (
+                len(labels_to_check.index) > 0
+                and (image_labels[labels_to_check].squeeze() == 1.0).any(axis=None)
+            ) or text_row.study_id == image_row.study_id
+            if searching:
+                self.error = False
+        return image_index
+
+class MimicCxrPretrainingDatasetRandom(MimicCxrPretrainingDataset):
+    def _get_different_image_index(self, text_index) -> int:
+        text_row = self.dataframe.iloc[text_index]
+        searching = True
+        while searching:
+            image_index = random.randint(0, len(self.dataframe) - 1)
+            image_row = self.dataframe.iloc[image_index]
+            searching = text_row.study_id == image_row.study_id
+        return image_index
 
 class MimicCxrMetricLearningDataset(MimicCxrDataset):
     def __getitem__(self, idx):

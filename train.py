@@ -12,7 +12,7 @@ import torch
 import pandas as pd
 from datasets import load_metric
 import numpy as np
-from dataset import MimicCxrPretrainingDataset
+from dataset import MimicCxrPretrainingDataset, MimicCxrPretrainingDatasetAnyLabels, MimicCxrPretrainingDatasetRandom
 from model import ViltForMaskedLMAndITM
 from data_collator import ViltDataCollatorForPretraining
 from transformers.utils import logging
@@ -34,6 +34,7 @@ argparser.add_argument(
 argparser.add_argument("--wandb_project_name", default="radiography", type=str, help="Project name for wandb logs")
 argparser.add_argument("--wandb_entity", default="tesi-zanetti", type=str, help="Wandb entity")
 #argparser.add_argument("N", type=int, help="defines the number of record in the training dataset (max 36896)")
+argparser.add_argument("--neg_selection", choices=["random", "any", "all"], default="random", help="approach used in selecting negative sampling (based on labels)")
 argparser.add_argument("-bs", "--batch_size", type=int, default=20, help="defines the batch size for train and eval")
 argparser.add_argument("-e", "--epochs", type=int, default=10, help="defines the number of epochs")
 argparser.add_argument("-lr", "--learning_rate", type=float, default=2e-5, help="defines the learning rate")
@@ -83,6 +84,12 @@ argparser.add_argument(
     type=int,
     help="Maximum number of position embeddings",
 )
+argparser.add_argument(
+    "--patch_size",
+    default=32,
+    type=int,
+    help="Patch size, where each patch is patch_size x patch_size",
+)
 
 args = argparser.parse_args()
 
@@ -97,11 +104,11 @@ torch.manual_seed(args.seed)
 # test_size = 1000
 
 # config modello
-config = ViltConfig(max_position_embeddings=args.max_position_embeddings)
+config = ViltConfig(max_position_embeddings=args.max_position_embeddings, patch_size=args.patch_size)
 
 # modello pre addestrato
 processor = ViltProcessor(
-    ViltFeatureExtractor(resample=3, image_mean=[0.5, 0.5, 0.5], image_std=[0.5, 0.5, 0.5], size_divisor=32),
+    ViltFeatureExtractor(resample=3, image_mean=[0.5, 0.5, 0.5], image_std=[0.5, 0.5, 0.5], size_divisor=args.patch_size),
     BertTokenizerFast.from_pretrained("bert-base-uncased", model_max_length=args.max_position_embeddings),
 )
 tokenizer = processor.tokenizer
@@ -113,8 +120,15 @@ torch.cuda.empty_cache()
 model = model.to(device)
 
 # creo i dataset di train, test e validation
-train_dataset = MimicCxrPretrainingDataset(args.dataset_path, split="train")
-val_dataset = MimicCxrPretrainingDataset(args.dataset_path, split="validate")
+if args.neg_selection == "all":
+    train_dataset = MimicCxrPretrainingDataset(args.dataset_path, split="train")
+    val_dataset = MimicCxrPretrainingDataset(args.dataset_path, split="validate")
+elif args.neg_selection == "any":
+    train_dataset = MimicCxrPretrainingDatasetAnyLabels(args.dataset_path, split="train")
+    val_dataset = MimicCxrPretrainingDatasetAnyLabels(args.dataset_path, split="validate")
+else:
+    train_dataset = MimicCxrPretrainingDatasetRandom(args.dataset_path, split="train")
+    val_dataset = MimicCxrPretrainingDatasetRandom(args.dataset_path, split="validate")
 
 
 # custom data collator
