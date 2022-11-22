@@ -151,3 +151,21 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Bash stuff
+.bash_history
+.bash_logout
+.bashrc
+
+# Docker stuff
+.docker/
+.devcontainer/
+.config/docker/
+.config/systemd/
+
+# Byobu
+.byobu/
+
+# other
+.config/pulse/
+.local/
