@@ -169,3 +169,4 @@ cython_debug/
 # other
 .config/pulse/
 .local/
+*.out

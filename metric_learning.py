@@ -23,7 +23,8 @@ def main():
     torch.manual_seed(args.random_seed)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+    print(device)
+    
     vilt_processor = ViltProcessor(
         ViltFeatureExtractor(resample=3, image_mean=[0.5, 0.5, 0.5], image_std=[0.5, 0.5, 0.5], size_divisor=32),
         AutoTokenizer.from_pretrained("bert-base-uncased", model_max_length=args.max_position_embeddings),
@@ -59,6 +60,7 @@ def main():
     wandb_config = config.to_dict()
     wandb_config.update(args.__dict__)
     # Attach wandb to tensorboard (pytorch-metric-learning suppports only the latter)
+    wandb.login(key=args.wandb_key)
     wandb.tensorboard.patch(root_logdir=tensorboard_folder)
 
     wandb.init(
@@ -94,7 +96,6 @@ def main():
         {"val": validation_dataset},
         model_folder,
         test_interval=1,
-        patience=args.patience if args.patience > 0 else None,
         test_collate_fn=ViltDataCollatorForMetricLearning(vilt_processor),
     )
     trainer = TwoStreamMetricLearningTrainer(
@@ -118,6 +119,12 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Metric Learning")
+    parser.add_argument(
+        "--wandb_key",
+        type=str,
+        default="9ad1cd077e95967a0961345a858b3028d18c80f5",
+        help="Wandb key for logging",
+    )
     parser.add_argument(
         "--logging",
         default="online",
@@ -177,12 +184,6 @@ if __name__ == "__main__":
         default=10,
         type=int,
         help="Number of epochs",
-    )
-    parser.add_argument(
-        "--patience",
-        default=3,
-        type=int,
-        help="Patience",
     )
     parser.add_argument(
         "--dataloader_workers",

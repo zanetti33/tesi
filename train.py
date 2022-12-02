@@ -117,6 +117,7 @@ model = ViltForMaskedLMAndITM.from_pretrained("dandelin/vilt-b32-mlm", config=co
 # passaggio del modello su gpu
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 torch.cuda.empty_cache()
+print(device)
 model = model.to(device)
 
 # creo i dataset di train, test e validation
