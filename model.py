@@ -141,7 +141,6 @@ class ViltForImageTextMatching(ViltPreTrainedModel):
         head_mask=None,
         inputs_embeds=None,
         image_embeds=None,
-        labels=None,
         next_sentence_labels=None,
         output_attentions=None,
         output_hidden_states=None,

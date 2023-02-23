@@ -9,6 +9,8 @@ from transformers import ViltConfig, ViltProcessor, ViltFeatureExtractor, AutoTo
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
+import os
 
 
 def data_to_device(data: dict, device: torch.device):
@@ -24,6 +26,51 @@ def rank_at_k(correct_labels: List, sorted_candidate_labels: List[List], Ks: Lis
                     found_at_top_k[k] = found_at_top_k[k] + 1
                     break
     return {k: count_at_k / len(correct_labels) for k, count_at_k in found_at_top_k.items()}
+
+def check_labels(correct_studies: List, sorted_candidate_studies: List[List]):
+    labels_dataframe = pd.read_csv(os.path.join(args.dataset_path, "mimic-cxr-2.0.0-negbio.csv"))
+    result = []
+    for correct_study, candidate_studies in zip(correct_studies, sorted_candidate_studies):
+        if (labels_dataframe["study_id"] == int(correct_study)).any():
+            this_query_result = []
+            correct_labels_to_check = labels_dataframe.loc[labels_dataframe["study_id"] == correct_study] == 1
+            print(correct_labels_to_check)
+            for candidate_study in candidate_studies:
+                candidate_labels = labels_dataframe.loc[labels_dataframe["study_id"] == candidate_study]
+                if (candidate_labels[correct_labels_to_check].squeeze() == 1.0).all(axis=None):
+                    this_query_result.append("Same")
+                elif (candidate_labels[correct_labels_to_check].squeeze() == 1.0).any(axis=None):
+                    this_query_result.append("Similar")
+                else:
+                    this_query_result.append("Different")
+            result.append(this_query_result)
+
+def check_labels_at_k(correct_studies: List, sorted_candidate_studies: List[List], Ks: List[int] = [1, 5, 10, 30]):
+    labels_dataframe = pd.read_csv(os.path.join(args.dataset_path, "mimic-cxr-2.0.0-negbio.csv"))
+    found_at_top_k = {k: 0 for k in Ks}
+
+    #count at k
+    for correct_study, candidate_studies in zip(correct_studies, sorted_candidate_studies):
+        if (labels_dataframe["study_id"] == int(correct_study)).any():
+            correct_labels_to_check = labels_dataframe.loc[labels_dataframe["study_id"] == correct_study] == 1
+            print(correct_labels_to_check)
+            for k in Ks:
+                for j in range(int(k)):
+                    candidate_labels = labels_dataframe.loc[labels_dataframe["study_id"] == candidate_studies[j]]
+                    if (candidate_labels[correct_labels_to_check].squeeze() == 1.0).all(axis=None):
+                        found_at_top_k[k] = found_at_top_k[k] + 1
+
+    #tot correct
+    tot_correct = 0
+    for correct_study, candidate_studies in zip(correct_studies, sorted_candidate_studies):
+        if (labels_dataframe["study_id"] == int(correct_study)).any():
+            correct_labels_to_check = labels_dataframe.loc[labels_dataframe["study_id"] == correct_study] == 1
+            print(correct_labels_to_check)
+            for candidate_study in candidate_studies:
+                candidate_labels = labels_dataframe.loc[labels_dataframe["study_id"] == candidate_study]
+                if (candidate_labels[correct_labels_to_check].squeeze() == 1.0).all(axis=None):
+                    tot_correct = tot_correct + 1
+    return {k: count_at_k / tot_correct for k, count_at_k in found_at_top_k.items()}
 
 
 def main():
@@ -46,6 +93,8 @@ def main():
 
     # training_dataset = MimicCxrMetricLearningDataset(args.dataset_path, split="train")
     validation_dataset = MimicCxrMetricLearningDataset(args.dataset_path, split="validate")
+    
+    print(len(pd.read_csv(os.path.join(args.dataset_path, "mimic-cxr-2.0.0-negbio.csv"))), len(validation_dataset))
     data_collator = ViltDataCollatorForMetricLearning(vilt_processor)
 
     dataloader = DataLoader(
@@ -117,6 +166,9 @@ def main():
 
     # Compute Rank@K
     print(rank_at_k(all_query_study_ids, all_sorted_candidated_study_ids, args.Ks))
+
+    #print(check_labels_at_k(all_query_study_ids, all_sorted_candidated_study_ids))
+    #print(results)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Retrieval Test")

@@ -40,6 +40,34 @@ class ViltDataCollatorForPretraining:
         encoding.update(labels_encoding)
         return encoding
 
+@dataclass
+class ViltDataCollatorForPretrainingOnlyITM:
+    processor: ViltProcessor
+
+    def __call__(
+        self, examples: List[Union[List[int], torch.Tensor, Dict[str, torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
+        if isinstance(examples, list):
+            texts = []
+            images = []
+            for e in examples:
+                texts.extend(e["texts"])
+                images.extend(e["images"])
+        else:
+            texts = examples["texts"]
+            images = examples["images"]
+        encoding = self.processor.tokenizer(texts, padding="max_length", truncation=True, return_tensors="pt")
+        encoding_feature_extractor = self.processor.feature_extractor(images, return_tensors="pt")
+        encoding.update(encoding_feature_extractor)
+        if isinstance(examples, list):
+            next_sentence_labels = []
+            for e in examples:
+                next_sentence_labels.append(e["next_sentence_labels"])
+            labels_encoding = {"next_sentence_labels": torch.LongTensor(next_sentence_labels)}
+        else:
+            labels_encoding = {"next_sentence_labels": torch.stack(examples["next_sentence_labels"], dim=1)}
+        encoding.update(labels_encoding)
+        return encoding
 
 class ViltDataCollatorForMetricLearning:
     def __init__(self, preprocessor: ViltProcessor) -> None:

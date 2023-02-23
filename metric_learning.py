@@ -46,8 +46,15 @@ def main():
     )
 
     # Loss Function
-    mining_func = miners.MultiSimilarityMiner()
-    loss_func = losses.MultiSimilarityLoss(alpha=args.multsim_alpha, beta=args.multsim_beta, base=args.multsim_lambda)
+    if args.loss == "triplet":
+        mining_func = miners.TripletMarginMiner(margin=args.triplet_margin*4, type_of_triplets=args.triplet_type)
+        loss_func = losses.TripletMarginLoss(margin=args.triplet_margin)
+    elif args.loss == "fast":
+        mining_func = miners.MultiSimilarityMiner()
+        loss_func = losses.FastAPLoss(num_bins=10)
+    else:
+        mining_func = miners.MultiSimilarityMiner()
+        loss_func = losses.MultiSimilarityLoss(alpha=args.multsim_alpha, beta=args.multsim_beta, base=args.multsim_lambda)
 
     models = {"trunk": model}
     optimizers = {"trunk_optimizer": optimizer}
@@ -55,7 +62,7 @@ def main():
     mining_funcs = {"tuple_miner": mining_func}
 
     # Logging
-    experiments_folder = os.path.join("metric_learning_experiments", args.experiment_name)
+    experiments_folder = os.path.join(args.output_folder, args.experiment_name)
     tensorboard_folder = os.path.join(experiments_folder, "tensorboard")
     wandb_config = config.to_dict()
     wandb_config.update(args.__dict__)
@@ -137,6 +144,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--wandb_entity", default="tesi-zanetti", type=str, help="Wandb entity")
     parser.add_argument(
+        "-of",
+        "--output_folder",
+        default="/home/zanetti",
+        help="defines the root directory where every output is saved",
+    )
+    parser.add_argument(
         "-en",
         "--experiment_name",
         help="defines the directory where the training checkpoint and logs are saved",
@@ -172,10 +185,21 @@ if __name__ == "__main__":
         default="dandelin/vilt-b32-mlm",
         help="Path to a pretrained model",
     )
+    parser.add_argument(
+        "--loss", 
+        choices=["multi_similarity", "triplet", "fast"], 
+        default="multi_similarity", 
+        help="loss function used, and corresponding miner")
+    parser.add_argument(
+        "--triplet_type", 
+        choices=["all", "hard", "semihard", "easy"], 
+        default="hard", 
+        help="type of triplets used in triplet loss")
     parser.add_argument("-lr", "--learning_rate", type=float, default=2e-5, help="defines the learning rate") #5e-6
     parser.add_argument("-wd", "--weight_decay", type=float, default=1e-4, help="defines the weight decay")
     parser.add_argument("-b1", "--adam_beta1", type=float, default=0.9, help="defines the hyperparameter beta 1")
     parser.add_argument("-b2", "--adam_beta2", type=float, default=0.999, help="defines the hyperparameter beta 2")
+    parser.add_argument("--triplet_margin", default=0.05, type=float, help="Triplets margin")
     parser.add_argument("--multsim_alpha", default=2.0, type=float, help="Multisimilarity Alpha")
     parser.add_argument("--multsim_beta", default=40.0, type=float, help="Multisimilarity Beta")
     parser.add_argument("--multsim_lambda", default=0.5, type=float, help="Multisimilarity Lambda")

@@ -16,9 +16,10 @@ RUN conda install -c huggingface transformers -y \
     && conda install -c anaconda pandas -y \
     && conda install -c huggingface -c conda-forge datasets -y \
     && conda install -c conda-forge scikit-learn -y \
-    && conda install -c conda-forge wandb=0.13.5 -y\
+    && conda install -c conda-forge wandb=0.13.5 -y \
     && conda install -c metric-learning pytorch-metric-learning=1.6.3 -y\
-    && conda install -c conda-forge tensorboard=2.10.1 -y
+    && conda install -c conda-forge tensorboard=2.10.1 -y \
+    && conda install -c conda-forge streamlit -y
 
 RUN pip install record-keeper==0.9.32 \
     && conda install -c conda-forge faiss=1.7.2 \
